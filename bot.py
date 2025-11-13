@@ -2,8 +2,8 @@ import streamlit as st
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.llms import HuggingFaceEndpoint
-from langchain.chains.combine_documents import create_stuff_documents_chain
-from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents.base import create_stuff_documents_chain
+from langchain.chains.retrieval_qa.base import create_retrieval_chain
 from langchain_core.prompts import PromptTemplate
 from dotenv import load_dotenv
 import os
@@ -29,26 +29,28 @@ def get_vectorstore():
     )
     return db
 
-# Load LLM using new HuggingFaceEndpoint (FIX)
+# Load LLM (new API)
 @st.cache_resource
 def load_llm():
     return HuggingFaceEndpoint(
         repo_id=HUGGINGFACE_REPO_ID,
         huggingfacehub_api_token=HF_TOKEN,
         task="text-generation",
-        model_kwargs={"temperature": 0.4, "max_new_tokens": 256}
+        model_kwargs={
+            "temperature": 0.3,
+            "max_new_tokens": 256
+        }
     )
 
-# Build Retrieval Chain (new LangChain API)
+# Build Retrieval Chain
 @st.cache_resource
 def create_qa_chain():
     vectorstore = get_vectorstore()
     llm = load_llm()
 
-    # Prompt for combining documents
     prompt = PromptTemplate(
         template="""
-You are a helpful assistant that answers questions based on the given context.
+Use the context to answer the question.
 
 Context:
 {context}
@@ -56,46 +58,45 @@ Context:
 Question:
 {input}
 
-Answer concisely and clearly:
+Answer:
 """,
         input_variables=["context", "input"],
     )
 
-    # Combine-documents chain
+    # Create chain parts
     combine_docs_chain = create_stuff_documents_chain(
         llm=llm,
         prompt=prompt
     )
 
-    # Final retrieval chain
     retriever = vectorstore.as_retriever(search_kwargs={"k": 7})
+
+    # Final retrieval QA chain
     return create_retrieval_chain(retriever, combine_docs_chain)
 
-# Streamlit App
+# ---- Streamlit UI ----
 st.title("🍽️ Zomato Chatbot")
 st.markdown("Ask anything about restaurants, dishes, or pricing!")
 
-# Chat history
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 qa_chain = create_qa_chain()
 
-# Display past conversation
-for entry in st.session_state.chat_history:
-    st.markdown(f"**You:** {entry['question']}")
-    st.markdown(f"**Bot:** {entry['answer']}")
+# Show previous messages
+for msg in st.session_state.chat_history:
+    st.markdown(f"**You:** {msg['question']}")
+    st.markdown(f"**Bot:** {msg['answer']}")
 
-# Input field
+# Input box
 user_input = st.text_input("Ask a new question:")
 
-# When user submits
+# Process new question
 if user_input:
     with st.spinner("Thinking..."):
         result = qa_chain.invoke({"input": user_input})
         answer = result["answer"]
 
-    # Save chat
     st.session_state.chat_history.append({
         "question": user_input,
         "answer": answer
