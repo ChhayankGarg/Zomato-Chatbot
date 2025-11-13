@@ -1,11 +1,8 @@
 streamlit
-langchain
-langchain-core
-langchain-huggingface
-langchain-community
+langchain==0.2.11
+langchain-core==0.2.29
+langchain-community==0.2.7
 sentence-transformers
 faiss-cpu
 huggingface-hub
-selenium
 python-dotenv
-pydantic>=2.0.0
