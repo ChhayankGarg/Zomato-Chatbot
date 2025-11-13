@@ -26,7 +26,8 @@ def load_llm():
     return HuggingFaceHub(
         repo_id=HUGGINGFACE_REPO_ID,
         model_kwargs={"temperature": 0.5, "max_length": 512},
-        huggingfacehub_api_token=HF_TOKEN
+        huggingfacehub_api_token=HF_TOKEN,
+        task="text-generation"
     )
 
 # Initialize the QA chain
